@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block body %}
+
+{% import 'macros.html' as macros %}
+
+<h2>Nodes</h2>
+
+This page lists all of the info that has been extracted from any node.
+
+<hr>
+
+<!-- TODO: implement collapsible stuff: http://v4-alpha.getbootstrap.com/components/collapse/ -->
+
+{% for repo_name, node_dict in intel.items() %}
+<h2> Repo: <b>{{repo_name}}</b></h2>
+
+  {% for node_name, intel_list in node_dict.items() %}
+      <h3>Node: <b>{{node_name}}</b></h3>
+
+      {% for intel_dict in intel_list %}
+      <h4>Extracted on: <b>{{intel_dict["time_ran"]["value"]}}</b></h4>
+        {% for k,v in intel_dict.items() %}
+          {{ macros.display_intel(k, v["value"], v["type"]) }}
+
+        {% endfor %}
+
+      {% endfor %}
+
+  <h5>
+
+  {% endfor %}
+
+{% endfor %}
+
+{% endblock %}

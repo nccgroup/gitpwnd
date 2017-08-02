@@ -1,0 +1,11 @@
+*.pyc
+.DS_Store
+*~
+
+# These are auto-generated from a template
+bootstrap.py
+homebrew.python.ncc.plist
+server_creds.yml
+
+data/
+config.yml

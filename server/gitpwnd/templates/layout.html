@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<!-- http://flask.pocoo.org/docs/0.12/tutorial/templates/ -->
+<title>GitPwnd</title>
+<link rel=stylesheet type='text/css' href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+<link rel=stylesheet type='text/css' href="{{ url_for('static', filename='css/bootstrap-reboot.min.css') }}">
+<link rel=stylesheet type='text/css' href="{{ url_for('static', filename='css/bootstrap-grid.min.css') }}">
+<link rel=stylesheet type='text/css' href="{{ url_for('static', filename='css/prism.css') }}">
+<script src="{{url_for('static', filename='js/jquery-3.1.1.min.js')}}"></script>
+<script src="{{url_for('static', filename='js/tether.min.js')}}"></script>
+<script src="{{url_for('static', filename='js/bootstrap.min.js')}}"></script>
+<script src="{{url_for('static', filename='js/prism.js')}}"></script>
+
+{% block html_head %}{% endblock %}
+</head>
+
+<body>
+
+<div class=page>
+    <!-- More examples of navbar: https://v4-alpha.getbootstrap.com/components/navbar/ -->
+
+    <!-- Borrowed from: https://v4-alpha.getbootstrap.com/examples/narrow-jumbotron/ -->
+    <div class="header clearfix">
+        <nav>
+            <ul class="nav nav-pills float-right">
+                <li class="nav-item">
+                    <!-- Can add "active" as a class here to make it highlighted nicely
+                         TODO: make it so the right icon is highlighted for the current page -->
+                    <a class="nav-link" href="{{ url_for('index')}}">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('setup')}}">Setup</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('nodes')}}">Nodes</a>
+                </li>
+            </ul>
+        </nav>
+        <h3 class="">GitPwnd</h3>
+    </div>
+
+    {% for message in get_flashed_messages() %}
+    <div class=flash>{{ message }}</div>
+    {% endfor %}
+
+    </br>
+
+    <div class="container">
+    {% block body %}{% endblock %}
+    </div>
+</div>
+
+</body>
+</html>

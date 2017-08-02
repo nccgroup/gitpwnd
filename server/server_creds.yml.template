@@ -1,0 +1,3 @@
+basic_auth_username: "gitpwnd"
+basic_auth_password: "$basic_auth_password"
+benign_repo_path: "$benign_repo_path"

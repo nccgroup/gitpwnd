@@ -1,0 +1,32 @@
+{# Macros for nodes.html #}
+
+{% macro display_intel(intel_name, intel_value, type='string') -%}
+<h5>{{intel_name}}</h5>
+
+{% if type == "string" %}
+    {{intel_value}}
+{% elif type == "json" %}
+
+<pre><code class="language-json">
+{{intel_value}}
+</code></pre>
+
+{% elif type == "shell_command" %}
+<pre><code>
+##########
+# stdout #
+##########
+{{intel_value["stdout"]}}
+
+##########
+# stderr #
+##########
+{{intel_value["stderr"]}}
+</code></pre>
+
+{% else %}
+    <pre>
+    {{intel_value}}
+    </pre>
+{% endif %}
+{%- endmacro %}
