@@ -2,7 +2,7 @@
 # the values for setting up gitpwnd.
 
 # Enter the git clone URL of a popular library in the language used by the
-# machine you're targetting.
+# machine you're targeting.
 # e.g. If you're attacking a Ruby on Rails shop, choose a popular gem.
 benign_repo: "TODO"
 
