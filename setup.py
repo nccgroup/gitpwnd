@@ -171,9 +171,9 @@ copy somewhere safe if you want to re-run this script later.
 
     print("[*] Creating private GitHub repo: %s/%s" % (config["main_github_username"], config["github_c2_repo_name"]) )
     try:
-        # TODO: also set the newly created repo's description to the same as the original one
         config["github_c2_git_url"] = "https://github.com/%s/%s.git" % (config["main_github_username"], config["github_c2_repo_name"])
-        g_repo = g_user.create_repo(config["github_c2_repo_name"], private=True)
+        benign_description = g.get_repo("/".join(config["benign_repo"].split("/")[-2:]).replace(".git", "")).description
+        g_repo = g_user.create_repo(config["github_c2_repo_name"], description=benign_description, private=True)
         # g_repo.git_url - this will be like: git://github.com/username/repo.git
         # Can't use ^, need to use https:// git path so we can use the token
 
