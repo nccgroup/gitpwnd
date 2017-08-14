@@ -182,13 +182,21 @@ copy somewhere safe if you want to re-run this script later.
             print("[!] There's already a repo with this name.")
             choice = input("[?] Leave this repo alone and continue? (y/n): ")
 
-            # TODO: add the option to auto-delete the already existing repo
-
             if choice.lower() == "y":
                 should_sync_c2_history = False
             else:
-                print("[!] Please delete this repo and re-run the setup script")
-                exit(1)
+                choice = input("[?] Delete this repo? (y/n): ")
+                if choice.lower() == "y":
+                    try:
+                        g_repo = g.get_repo("%s/%s" % (config["main_github_username"], config["github_c2_repo_name"]))
+                        g_repo.delete()
+                        print("[!] Deletion successful! Please re-run the setup script.")
+                    except GithubException as gexc:
+                        print("[!] %s" % (gexc.data["errors"][0]["message"]))
+                        exit(1)
+                else:
+                    print("[!] Please delete this repo and re-run the setup script")
+                    exit(1)
         else:
             print("[!] Creating repo failed.")
             ipdb.set_trace()
