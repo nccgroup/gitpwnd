@@ -5,6 +5,7 @@ from gitpwnd import app
 
 class CryptoHelper:
 
+    @staticmethod
     def verify_signature(payload, secret):
         key = app.config["HOOK_SECRET"].encode('utf-8')
         h = hmac.new(key, digestmod=hashlib.sha1)
