@@ -14,6 +14,7 @@ from gitpwnd import app, basic_auth
 from gitpwnd.util.git_helper import GitHelper
 from gitpwnd.util.file_helper import FileHelper
 from gitpwnd.util.intel_helper import IntelHelper
+from gitpwnd.util.crypto_helper import CryptoHelper
 
 # Basic auth adapted from the following didn't quite do what I wanted
 # http://flask.pocoo.org/snippets/8/
@@ -51,7 +52,13 @@ def nodes():
 
 @app.route("/api/repo/receive_branch", methods=["POST"])
 def receive_branch():
-    repo_name = request.get_json()["repository"]["name"]
-    branch = request.get_json()["ref"].split("/")[-1]
+    payload = request.get_json()
+    secret = request.headers["X-Hub-Signature"]
+
+    if not CryptoHelper.verify_signature(payload, secret):
+        abort(500, {"message": "Signatures didn't match!"})
+
+    repo_name = payload["repository"]["name"]
+    branch = payload["ref"].split("/")[-1]
     GitHelper.import_intel_from_branch(repo_name, branch, app.config["BACKDOORED_REPOS_PATH"], app.config["INTEL_ROOT"])
     return "OK"

@@ -13,6 +13,7 @@ with open("server_creds.yml", 'r') as f:
 
 app.config['BASIC_AUTH_USERNAME'] = server_config["basic_auth_username"]
 app.config['BASIC_AUTH_PASSWORD'] = server_config["basic_auth_password"]
+app.config['HOOK_SECRET'] = server_config["hook_secret"]
 
 # TODO: fix the naming confusion. This is the path to a local version of the repo
 # we're using for command and control
