@@ -417,7 +417,8 @@ def create_c2_webhook(config):
 
     # We're using a self-signed cert, so we need to turn off TLS verification for now :(
     # See the following for details: https://developer.github.com/v3/repos/hooks/#create-a-hook
-    params = {"url": webhook_endpoint, "content_type": "json", "insecure_ssl": "1"}
+    hook_secret = str(uuid.uuid4())
+    params = {"url": webhook_endpoint, "content_type": "json", "secret": hook_secret, "insecure_ssl": "1"}
 
     #  PyGithub's create_hook doc:
     # http://pygithub.readthedocs.io/en/latest/github_objects/Repository.html?highlight=create_hook
@@ -425,6 +426,17 @@ def create_c2_webhook(config):
         repo.create_hook("web", params, ["push"], True)
     except:
         print("[!] Web hook already exists")
+        hook = repo.get_hooks()[0]
+        if "secret" not in hook.config.keys():
+            print("[!] Adding a secret to the hook...")
+        else:
+            hook_secret = input("Enter webhook secret (Github Repo > Settings > Webhooks > Edit > Inspect 'Secret' element): ")
+        new_hook_config = hook.config
+        new_hook_config["secret"] = hook_secret
+        hook.edit(name=hook.name, config=new_hook_config)
+    finally:
+        return hook_secret
+
 
 # Automatically generate a new password for the gitpwnd server
 # so we don't use a default one
@@ -437,7 +449,8 @@ def customize_gitpwnd_server_config(config):
         templatized_creds_file = string.Template(f.read())
 
     params = {"basic_auth_password": str(uuid.uuid4()),
-              "benign_repo_path": config["benign_repo_path"]}
+              "benign_repo_path": config["benign_repo_path"],
+              "hook_secret": config["hook_secret"]}
     with open(output_file, 'w') as f:
         f.write(templatized_creds_file.safe_substitute(params))
 
@@ -475,9 +488,10 @@ def main(setup_dir, repo_dir, ssh_key_dir):
 
     add_collaborator(config["main_github_token"], config["github_c2_repo_name"], config["secondary_github_token"])
 
-    customize_gitpwnd_server_config(config)
+    hook_secret = create_c2_webhook(config)
+    config["hook_secret"] = hook_secret
 
-    create_c2_webhook(config)
+    customize_gitpwnd_server_config(config)
 
 
     # the clone URL compromised machines will use
