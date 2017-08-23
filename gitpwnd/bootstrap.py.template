@@ -183,7 +183,7 @@ def is_git_directory(path):
 
 def find_git_repos(base_dir):
     git_repos = []
-    for directory in next(os.walk())[1]:
+    for directory in next(os.walk(base_dir))[1]:
         full_path = os.path.abspath(directory)
         if is_git_directory(full_path):
             git_repos.append(full_path)
