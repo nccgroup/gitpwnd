@@ -80,7 +80,7 @@ def get_commit_info():
 # - Our backdoored repo has been added as a remote, named `remote_repo_name`
 # - We have an additional local branch we've saved command output into
 #
-# We want to get ride of all these things so that we're left with only the benign
+# We want to get rid of all these things so that we're left with only the benign
 # remote and default master they'd see on GitHub/whatever.
 def hide_git_tracks(remote_repo_name, commit_branch):
     run_command("git checkout -b tmp")

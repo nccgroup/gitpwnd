@@ -177,9 +177,17 @@ def find_root_of_git_repo(path):
         else:
             cur_dir = os.path.join(cur_dir, "..")
 
-# TODO: Iterate through all dirs in base_dir and find all the git repos
+def is_git_directory(path):
+    exit_code = subprocess.call(["git", "status"], cwd=path, stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
+    return (exit_code == 0)
+
 def find_git_repos(base_dir):
-    return []
+    git_repos = []
+    for directory in next(os.walk(base_dir))[1]:
+        full_path = os.path.abspath(directory)
+        if is_git_directory(full_path):
+            git_repos.append(full_path)
+    return git_repos
 
 # Wrapper for bootstrapping that does different things based on platform
 def bootstrap():
