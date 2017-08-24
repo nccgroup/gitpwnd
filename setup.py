@@ -388,15 +388,16 @@ def _add_file_to_c2_repo(config, template_file_path, params, dest_path_in_c2_rep
     with open(dest_file, "w") as f:
         f.write(templatized_file.safe_substitute(params))
 
-    # Add agent.py to the c2 repo #
+    # Add file to the c2 repo
     orig_dir = os.path.abspath(os.curdir)
     # cd into cloned git repo to do git munging there
     os.chdir(config["benign_repo_path"])
-
-    # Add agent.py and push
-    subprocess.check_output("git add %s" % dest_path_in_c2_repo, shell=True)
-    subprocess.check_output("git commit -m 'Add %s'" % dest_path_in_c2_repo, shell=True)
-    subprocess.check_output("git push --repo %s" % config["primary_clone_url"], shell=True)
+    
+    if "nothing to commit" not in str(subprocess.check_output("git status", shell=True)):
+        # Add agent.py and push
+        subprocess.check_output("git add %s" % dest_path_in_c2_repo, shell=True)
+        subprocess.check_output("git commit -m 'Add %s'" % dest_path_in_c2_repo, shell=True)
+        subprocess.check_output("git push --repo %s" % config["primary_clone_url"], shell=True)
 
     os.chdir(orig_dir)
 
