@@ -173,14 +173,16 @@ def main(repo_dir, private_git_url, remote_repo_name, remote_repo_master_branch)
 
 # Is git's user.name or user.email unset?
 def git_commit_info_is_unset():
-    # If they haven't set their username they probably also haven't set their email
-    # TODO: in the future, improve this to handle one being set and the other not
-    try:
-        # throws an exception if no git user name is set
-        subprocess.check_output("git config --get user.name", shell=True)
-        return False
-    except:
+    return_codes = []
+    for field in ["name", "email"]:
+        out = subprocess.Popen("git config --get user.%s" % (field), stdout=subprocess.PIPE, shell=True)
+        _ = out.communicate()[0]
+        return_codes.append(out.returncode)
+
+    # If either one didn't return a value, say that git info is unset
+    if return_codes.count(0) != 2:
         return True
+    return False
 
 # Unsets the git user.name and user.email
 def remove_git_commit_info():
