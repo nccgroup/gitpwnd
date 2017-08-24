@@ -338,11 +338,6 @@ def get_bootstrap_content(config):
 
     return templatized_bootstrap_file.safe_substitute(params)
 
-#     return """
-# with open("/tmp/gitpwnd", "w") as f:
-#     f.write("owned")
-# """
-
 # After all the setup has been done, get the one liner that should be placed in a repo
 def get_python_one_liner(gist_url):
     # Note that `exec` is required for multiline statements, eval seems to only do simple expressions
@@ -475,8 +470,13 @@ def main(setup_dir, repo_dir, ssh_key_dir):
 
     # Usage: python3 setup.py <optional path to config.yml>
     if len(sys.argv) > 1:
-        with open(sys.argv[1], 'r') as f:
-            config = yaml.load(f)
+        config_path = sys.argv[1]
+    else:
+        print("[*] Using default config path of ./config.yml")  
+        config_path = "./config.yml"
+
+    with open(config_path, 'r') as f:
+        config = yaml.load(f)
 
 
 
