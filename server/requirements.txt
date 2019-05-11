@@ -7,7 +7,7 @@ ipdb==0.10.1
 ipython==5.0.0
 ipython-genutils==0.1.0
 itsdangerous==0.24
-Jinja2==2.8
+Jinja2>=2.10.1
 MarkupSafe==0.23
 pathlib2==2.1.0
 pexpect==4.2.0
