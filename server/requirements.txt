@@ -4,7 +4,7 @@ click==6.6
 decorator==4.0.10
 Flask==1.0
 ipdb==0.10.1
-ipython==5.0.0
+ipython==7.16.3
 ipython-genutils==0.1.0
 itsdangerous==0.24
 Jinja2>=2.10.1
